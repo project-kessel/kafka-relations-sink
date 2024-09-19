@@ -17,23 +17,25 @@
 
 package com.redhatinsights.relations_connector;
 
-import java.io.IOException;
-import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.google.gson.*;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.config.AbstractConfig;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+import org.apache.kafka.connect.json.JsonConverter;
+import org.project_kessel.api.relations.v1beta1.*;
+import org.project_kessel.relations.client.RelationTuplesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.redhatinsights.relations_connector.RelationsSinkConnector.startOrRetrieveManagerFromProps;
 
 /**
  * FileStreamSinkTask writes records to stdout or a file.
@@ -41,16 +43,10 @@ import org.slf4j.LoggerFactory;
 public class RelationsSinkTask extends SinkTask {
     private static final Logger log = LoggerFactory.getLogger(RelationsSinkTask.class);
 
-    private String filename;
-    private PrintStream outputStream;
+    private RelationTuplesClient relationTuplesClient;
+    private final JsonConverter jsonConverter = new JsonConverter();
 
     public RelationsSinkTask() {
-    }
-
-    // for testing
-    public RelationsSinkTask(PrintStream outputStream) {
-        filename = null;
-        this.outputStream = outputStream;
     }
 
     @Override
@@ -60,43 +56,134 @@ public class RelationsSinkTask extends SinkTask {
 
     @Override
     public void start(Map<String, String> props) {
-        AbstractConfig config = new AbstractConfig(RelationsSinkConnector.CONFIG_DEF, props);
-        filename = config.getString(RelationsSinkConnector.FILE_CONFIG);
-        if (filename == null || filename.isEmpty()) {
-            outputStream = System.out;
-        } else {
+        log.debug("Starting RelationsSinkTask");
+        jsonConverter.configure(props, false);
+        /* No new grpc channel will be created, only retrieved, since the connector makes the call first */
+        var relationsClientsManager = startOrRetrieveManagerFromProps(props);
+        relationTuplesClient = relationsClientsManager.getRelationTuplesClient();
+        log.trace("Done starting RelationsSinkTask");
+    }
+
+    @Override
+    public void put(Collection<SinkRecord> sinkRecords) {
+        log.trace("Putting sinkRecords");
+        for (SinkRecord record : sinkRecords) {
+            log.trace("Processing record {}", record.value());
             try {
-                outputStream = new PrintStream(
-                    Files.newOutputStream(Paths.get(filename), StandardOpenOption.CREATE, StandardOpenOption.APPEND),
-                    false,
-                    StandardCharsets.UTF_8.name());
-            } catch (IOException e) {
-                throw new ConnectException("Couldn't find or create file '" + filename + "' for FileStreamSinkTask", e);
+                byte[] rawJson = jsonConverter.fromConnectData(
+                        "debezium-testing.public.outbox",
+                        record.valueSchema(),
+                        record.value());
+                String json = new String(rawJson, StandardCharsets.UTF_8);
+                JsonObject replicationEvent = JsonParser.parseString(json).getAsJsonObject();
+
+                log.trace("Received replication event. Json: {}", replicationEvent);
+
+                JsonObject payload = replicationEvent.get("payload").getAsJsonObject();
+
+                /* Do tuple deletes */
+                JsonElement relationsToDeleteElement = payload.get("relations_to_delete");
+                if (relationsToDeleteElement != null && relationsToDeleteElement.isJsonArray()) {
+                    JsonArray relationsToDelete = relationsToDeleteElement.getAsJsonArray();
+                    log.trace("Relations to delete: {}", relationsToDelete);
+
+                    jsonArrayToDeleteRequestStream(relationsToDelete).forEach(relationTuplesClient::deleteTuples);
+                    log.trace("Relations deleted");
+                }
+
+                /* Do tuple creates */
+                JsonElement relationsToAddElement = payload.get("relations_to_add");
+                if (relationsToAddElement != null && relationsToAddElement.isJsonArray()) {
+                    JsonArray relationsToAdd = relationsToAddElement.getAsJsonArray();
+                    log.trace("Relations to add: {}", relationsToAddElement.getAsJsonArray());
+
+                    CreateTuplesRequest ctr = CreateTuplesRequest.newBuilder()
+                            .addAllTuples(jsonArrayToRelationshipList(relationsToAdd))
+                            .build();
+
+                    relationTuplesClient.createTuples(ctr);
+                    log.trace("Relations deleted");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
 
     @Override
-    public void put(Collection<SinkRecord> sinkRecords) {
-        for (SinkRecord record : sinkRecords) {
-            log.trace("Writing line to {}: {}", logFilename(), record.value());
-            outputStream.println(record.value());
-        }
-    }
-
-    @Override
     public void flush(Map<TopicPartition, OffsetAndMetadata> offsets) {
-        log.trace("Flushing output stream for {}", logFilename());
-        outputStream.flush();
+        log.trace("Flushing channel for RelationsSinkTask -- currently a no op");
     }
 
     @Override
     public void stop() {
-        if (outputStream != null && outputStream != System.out)
-            outputStream.close();
+        log.debug("Stopping RelationsSinkTask -- currently a no op");
     }
 
-    private String logFilename() {
-        return filename == null ? "stdout" : filename;
+    private static Stream<DeleteTuplesRequest> jsonArrayToDeleteRequestStream(JsonArray relations) {
+        return relations.asList().stream()
+                .map(JsonElement::getAsJsonObject)
+                .map(RelationsSinkTask::jsonToDeleteRequest);
+    }
+
+    private static List<Relationship> jsonArrayToRelationshipList(JsonArray relations) {
+        return relations.asList().stream()
+                .map(JsonElement::getAsJsonObject)
+                .map(RelationsSinkTask::jsonToRelationship)
+                .collect(Collectors.toList());
+    }
+
+    private static DeleteTuplesRequest jsonToDeleteRequest(JsonObject jsonRelationship) {
+        return DeleteTuplesRequest.newBuilder()
+                .setFilter(jsonToRelationTupleFilter(jsonRelationship))
+                .build();
+    }
+
+    private static RelationTupleFilter jsonToRelationTupleFilter(JsonObject jsonRelationship) {
+        String resourceType = jsonRelationship.get("resource").getAsJsonObject().get("type").getAsString();
+        String resourceId = jsonRelationship.get("resource").getAsJsonObject().get("id").getAsString();
+        String relation = jsonRelationship.get("relation").getAsString();
+        String subjectType = jsonRelationship.get("subject").getAsJsonObject().get("type").getAsString();
+        String subjectId = jsonRelationship.get("subject").getAsJsonObject().get("id").getAsString();
+
+        return RelationTupleFilter.newBuilder()
+                .setResourceNamespace("rbac")
+                .setResourceType(resourceType)
+                .setResourceId(resourceId)
+                .setRelation(relation)
+                .setSubjectFilter(SubjectFilter.newBuilder()
+                        .setSubjectNamespace("rbac")
+                        .setSubjectType(subjectType)
+                        .setSubjectId(subjectId)
+                        .build())
+                .build();
+    }
+
+    private static Relationship jsonToRelationship(JsonObject jsonRelationship) {
+        String resourceType = jsonRelationship.get("resource").getAsJsonObject().get("type").getAsString();
+        String resourceId = jsonRelationship.get("resource").getAsJsonObject().get("id").getAsString();
+        String relation = jsonRelationship.get("relation").getAsString();
+        String subjectType = jsonRelationship.get("subject").getAsJsonObject().get("type").getAsString();
+        String subjectId = jsonRelationship.get("subject").getAsJsonObject().get("id").getAsString();
+
+        return Relationship.newBuilder()
+                .setResource(ObjectReference.newBuilder()
+                        .setType(ObjectType.newBuilder()
+                                .setNamespace("rbac")
+                                .setName(resourceType)
+                                .build())
+                        .setId(resourceId)
+                        .build())
+                .setRelation(relation)
+                .setSubject(SubjectReference.newBuilder()
+                        .setSubject(ObjectReference.newBuilder()
+                                .setType(ObjectType.newBuilder()
+                                        .setNamespace("rbac")
+                                        .setName(subjectType)
+                                        .build())
+                                .setId(subjectId)
+                                .build())
+                        .build())
+                .build();
     }
 }

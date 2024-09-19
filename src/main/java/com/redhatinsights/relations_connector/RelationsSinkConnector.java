@@ -20,14 +20,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import io.smallrye.config.SmallRyeConfig;
+import io.smallrye.config.SmallRyeConfigBuilder;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.ConfigDef.Importance;
-import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
+import org.project_kessel.relations.client.Config;
+import org.project_kessel.relations.client.RelationsGrpcClientsManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,11 +38,24 @@ import org.slf4j.LoggerFactory;
 public class RelationsSinkConnector extends SinkConnector {
 
     private static final Logger log = LoggerFactory.getLogger(RelationsSinkTask.class);
-    public static final String FILE_CONFIG = "file";
-    static final ConfigDef CONFIG_DEF = new ConfigDef()
-        .define(FILE_CONFIG, Type.STRING, null, Importance.HIGH, "Destination filename. If not specified, the standard output will be used");
+    // TODO: ConfigDef not build out -- using microprofile instead, but config() returns it...
+    static final ConfigDef CONFIG_DEF = new ConfigDef();
 
     private Map<String, String> props;
+    private RelationsGrpcClientsManager relationsClientsManager;
+
+    static RelationsGrpcClientsManager startOrRetrieveManagerFromProps(Map<String, String> props) {
+        /* Build validated relations Config from Kafka connect properties */
+        RelationsMicroProfileConfigSource mPConfigSource = new RelationsMicroProfileConfigSource(props);
+        SmallRyeConfig config = new SmallRyeConfigBuilder()
+                .withSources(mPConfigSource)
+                .withMapping(Config.class)
+                .build();
+        Config relationsConfig = config.getConfigMapping(Config.class);
+        String targetUrl = relationsConfig.targetUrl();
+
+        return RelationsGrpcClientsManager.forInsecureClients(targetUrl);
+    }
 
     @Override
     public String version() {
@@ -50,11 +64,10 @@ public class RelationsSinkConnector extends SinkConnector {
 
     @Override
     public void start(Map<String, String> props) {
+        log.debug("Starting RelationsSinkConnector");
         this.props = props;
-        AbstractConfig config = new AbstractConfig(CONFIG_DEF, props);
-        String filename = config.getString(FILE_CONFIG);
-        filename = (filename == null || filename.isEmpty()) ? "standard output" : filename;
-        log.info("Starting file sink connector writing to {}", filename);
+        relationsClientsManager = startOrRetrieveManagerFromProps(props);
+        log.trace("Done starting RelationsSinkConnector");
     }
 
     @Override
@@ -73,7 +86,8 @@ public class RelationsSinkConnector extends SinkConnector {
 
     @Override
     public void stop() {
-        // Nothing to do since FileStreamSinkConnector has no background monitoring.
+        log.debug("Stopping RelationsSinkConnector");
+        RelationsGrpcClientsManager.shutdownManager(relationsClientsManager);
     }
 
     @Override
