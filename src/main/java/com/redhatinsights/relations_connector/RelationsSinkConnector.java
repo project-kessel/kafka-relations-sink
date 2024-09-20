@@ -22,6 +22,7 @@ import java.util.Map;
 
 import io.smallrye.config.SmallRyeConfig;
 import io.smallrye.config.SmallRyeConfigBuilder;
+import io.smallrye.config.common.MapBackedConfigSource;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.AppInfoParser;
@@ -36,8 +37,10 @@ import org.slf4j.LoggerFactory;
  * Very simple sink connector that works with stdout or a file.
  */
 public class RelationsSinkConnector extends SinkConnector {
+    private static final String KAFKA_PROPERTIES_NAME = "KafkaProperties";
 
     private static final Logger log = LoggerFactory.getLogger(RelationsSinkTask.class);
+
     // TODO: ConfigDef not build out -- using microprofile instead, but config() returns it...
     static final ConfigDef CONFIG_DEF = new ConfigDef();
 
@@ -45,10 +48,8 @@ public class RelationsSinkConnector extends SinkConnector {
     private RelationsGrpcClientsManager relationsClientsManager;
 
     static RelationsGrpcClientsManager startOrRetrieveManagerFromProps(Map<String, String> props) {
-        /* Build validated relations Config from Kafka connect properties */
-        RelationsMicroProfileConfigSource mPConfigSource = new RelationsMicroProfileConfigSource(props);
         SmallRyeConfig config = new SmallRyeConfigBuilder()
-                .withSources(mPConfigSource)
+                .withSources(new MapBackedConfigSource(KAFKA_PROPERTIES_NAME, props){})
                 .withMapping(Config.class)
                 .build();
         Config relationsConfig = config.getConfigMapping(Config.class);
