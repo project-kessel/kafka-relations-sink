@@ -92,7 +92,8 @@ services:
       - "SPICEDB_DATASTORE_ENGINE=postgres"
       - "SPICEDB_DATASTORE_CONN_URI=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/spicedb?sslmode=disable"
     depends_on:
-      - "database"
+      database:
+        condition: service_healthy
 
   database:
     image: "postgres"
@@ -102,6 +103,11 @@ services:
     environment:
       - "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
       - "POSTGRES_DB=${POSTGRES_DBNAME}"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 2s
+      timeout: 2s
+      retries: 5
 
 volumes:
   kafka-connect-logs:
