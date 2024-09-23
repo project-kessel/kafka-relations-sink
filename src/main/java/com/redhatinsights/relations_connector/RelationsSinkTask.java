@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.google.gson.*;
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.util.JsonFormat;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -140,50 +142,32 @@ public class RelationsSinkTask extends SinkTask {
     }
 
     private static RelationTupleFilter jsonToRelationTupleFilter(JsonObject jsonRelationship) {
-        String resourceType = jsonRelationship.get("resource").getAsJsonObject().get("type").getAsString();
-        String resourceId = jsonRelationship.get("resource").getAsJsonObject().get("id").getAsString();
-        String relation = jsonRelationship.get("relation").getAsString();
-        String subjectType = jsonRelationship.get("subject").getAsJsonObject().get("type").getAsString();
-        String subjectId = jsonRelationship.get("subject").getAsJsonObject().get("id").getAsString();
+        return relationshipToRelationTupleFilter(jsonToRelationship(jsonRelationship));
+    }
 
+    private static RelationTupleFilter relationshipToRelationTupleFilter(Relationship relationship) {
         return RelationTupleFilter.newBuilder()
-                .setResourceNamespace("rbac")
-                .setResourceType(resourceType)
-                .setResourceId(resourceId)
-                .setRelation(relation)
+                .setResourceNamespace(relationship.getResource().getType().getNamespace())
+                .setResourceType(relationship.getResource().getType().getName())
+                .setResourceId(relationship.getResource().getId())
+                .setRelation(relationship.getRelation())
                 .setSubjectFilter(SubjectFilter.newBuilder()
-                        .setSubjectNamespace("rbac")
-                        .setSubjectType(subjectType)
-                        .setSubjectId(subjectId)
+                        .setSubjectNamespace(relationship.getSubject().getSubject().getType().getNamespace())
+                        .setSubjectType(relationship.getSubject().getSubject().getType().getName())
+                        .setSubjectId(relationship.getSubject().getSubject().getId())
                         .build())
                 .build();
     }
 
     private static Relationship jsonToRelationship(JsonObject jsonRelationship) {
-        String resourceType = jsonRelationship.get("resource").getAsJsonObject().get("type").getAsString();
-        String resourceId = jsonRelationship.get("resource").getAsJsonObject().get("id").getAsString();
-        String relation = jsonRelationship.get("relation").getAsString();
-        String subjectType = jsonRelationship.get("subject").getAsJsonObject().get("type").getAsString();
-        String subjectId = jsonRelationship.get("subject").getAsJsonObject().get("id").getAsString();
-
-        return Relationship.newBuilder()
-                .setResource(ObjectReference.newBuilder()
-                        .setType(ObjectType.newBuilder()
-                                .setNamespace("rbac")
-                                .setName(resourceType)
-                                .build())
-                        .setId(resourceId)
-                        .build())
-                .setRelation(relation)
-                .setSubject(SubjectReference.newBuilder()
-                        .setSubject(ObjectReference.newBuilder()
-                                .setType(ObjectType.newBuilder()
-                                        .setNamespace("rbac")
-                                        .setName(subjectType)
-                                        .build())
-                                .setId(subjectId)
-                                .build())
-                        .build())
-                .build();
+        Relationship.Builder rtfBuilder = Relationship.newBuilder();
+        try {
+            JsonFormat.parser().merge(jsonRelationship.toString(), rtfBuilder);
+            return rtfBuilder.build();
+        } catch (InvalidProtocolBufferException e) {
+            log.error("Can't parse jsonRelationship JsonObject into protobuf type {}", Relationship.class);
+            // TODO: figure out exception handling with regard to task/connector lifecycles, dead letter queues, etc.
+            throw new RuntimeException(e);
+        }
     }
 }
