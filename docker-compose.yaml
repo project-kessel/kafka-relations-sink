@@ -36,7 +36,7 @@ services:
 
   kafka_connect:
     container_name: relations_sink_connect
-    image: quay.io/cloudservices/kafka-connect:57decfc
+    image: registry.redhat.io/amq-streams/kafka-37-rhel9:2.7.0-6
     command: [
       "sh", "-c", "bin/connect-distributed.sh /opt/kafka/config/relations_connect.properties"
     ]
