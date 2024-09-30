@@ -39,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static com.redhatinsights.relations_connector.RelationsSinkConnector.startOrRetrieveManagerFromProps;
+import static org.apache.kafka.common.requests.DescribeConfigsResponse.ConfigSource.TOPIC_CONFIG;
 
 /**
  * FileStreamSinkTask writes records to stdout or a file.
@@ -47,6 +48,7 @@ public class RelationsSinkTask extends SinkTask {
     private static final Logger log = LoggerFactory.getLogger(RelationsSinkTask.class);
 
     private RelationTuplesClient relationTuplesClient;
+    private String topic;
     private final JsonConverter jsonConverter = new JsonConverter();
 
     public RelationsSinkTask() {
@@ -64,6 +66,7 @@ public class RelationsSinkTask extends SinkTask {
         /* No new grpc channel will be created, only retrieved, since the connector makes the call first */
         var relationsClientsManager = startOrRetrieveManagerFromProps(props);
         relationTuplesClient = relationsClientsManager.getRelationTuplesClient();
+        topic = props.get(TOPIC_CONFIG);
         log.trace("Done starting RelationsSinkTask");
     }
 
@@ -74,7 +77,7 @@ public class RelationsSinkTask extends SinkTask {
             log.trace("Processing record {}", record.value());
             try {
                 byte[] rawJson = jsonConverter.fromConnectData(
-                        "debezium-testing.public.outbox",
+                        topic,
                         record.valueSchema(),
                         record.value());
                 String json = new String(rawJson, StandardCharsets.UTF_8);
