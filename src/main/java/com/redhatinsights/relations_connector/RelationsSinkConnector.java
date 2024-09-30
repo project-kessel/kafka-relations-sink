@@ -28,7 +28,7 @@ import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
-import org.project_kessel.relations.client.Config;
+import org.project_kessel.relations.client.RelationsConfig;
 import org.project_kessel.relations.client.RelationsGrpcClientsManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,9 +50,9 @@ public class RelationsSinkConnector extends SinkConnector {
     static RelationsGrpcClientsManager startOrRetrieveManagerFromProps(Map<String, String> props) {
         SmallRyeConfig config = new SmallRyeConfigBuilder()
                 .withSources(new MapBackedConfigSource(KAFKA_PROPERTIES_NAME, props){})
-                .withMapping(Config.class)
+                .withMapping(RelationsConfig.class)
                 .build();
-        Config relationsConfig = config.getConfigMapping(Config.class);
+        RelationsConfig relationsConfig = config.getConfigMapping(RelationsConfig.class);
         String targetUrl = relationsConfig.targetUrl();
 
         return RelationsGrpcClientsManager.forInsecureClients(targetUrl);

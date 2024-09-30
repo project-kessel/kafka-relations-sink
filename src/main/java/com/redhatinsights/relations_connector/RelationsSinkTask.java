@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.common.collect.Streams;
 import com.google.gson.*;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
@@ -123,13 +124,13 @@ public class RelationsSinkTask extends SinkTask {
     }
 
     private static Stream<DeleteTuplesRequest> jsonArrayToDeleteRequestStream(JsonArray relations) {
-        return relations.asList().stream()
+        return Streams.stream(relations.iterator())
                 .map(JsonElement::getAsJsonObject)
                 .map(RelationsSinkTask::jsonToDeleteRequest);
     }
 
     private static List<Relationship> jsonArrayToRelationshipList(JsonArray relations) {
-        return relations.asList().stream()
+        return Streams.stream(relations.iterator())
                 .map(JsonElement::getAsJsonObject)
                 .map(RelationsSinkTask::jsonToRelationship)
                 .collect(Collectors.toList());
