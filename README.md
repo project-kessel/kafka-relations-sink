@@ -13,5 +13,5 @@ In order to configure and turn on the connector, run `curl -d @"sink.json" -H "C
 
 If it completes successfully you should get this response from the curl:
 ```
-{"name":"com.redhatinsights.relations_connector.RelationsSinkConnector","config":{"connector.class":"com.redhatinsights.relations_connector.RelationsSinkConnector","tasks.max":"1","relations-api.target-url":"relations-api:9000","topics":"debezium-test.public.outbox","name":"com.redhatinsights.relations_connector.RelationsSinkConnector"},"tasks":[],"type":"sink"}
+{"name":"org.project_kessel.kafka.relations.sink.RelationsSinkConnector","config":{"connector.class":"org.project_kessel.kafka.relations.sink.RelationsSinkConnector","tasks.max":"1","relations-api.target-url":"relations-api:9000","topics":"debezium-test.public.outbox","name":"org.project_kessel.kafka.relations.sink.RelationsSinkConnector"},"tasks":[],"type":"sink"}
 ```

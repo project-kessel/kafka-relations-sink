@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.redhatinsights.relations_connector;
+package org.project_kessel.kafka.relations.sink;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
@@ -38,7 +38,7 @@ import org.project_kessel.relations.client.RelationTuplesClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static com.redhatinsights.relations_connector.RelationsSinkConnector.startOrRetrieveManagerFromProps;
+import static org.project_kessel.kafka.relations.sink.RelationsSinkConnector.startOrRetrieveManagerFromProps;
 import static org.apache.kafka.common.requests.DescribeConfigsResponse.ConfigSource.TOPIC_CONFIG;
 
 /**

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.redhatinsights.relations_connector;
+package org.project_kessel.kafka.relations.sink;
 
 import java.util.ArrayList;
 import java.util.List;

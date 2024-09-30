@@ -1,7 +1,7 @@
 {
-    "name": "com.redhatinsights.relations_connector.RelationsSinkConnector",
+    "name": "org.project_kessel.kafka.relations.sink.RelationsSinkConnector",
     "config": {
-        "connector.class": "com.redhatinsights.relations_connector.RelationsSinkConnector",
+        "connector.class": "org.project_kessel.kafka.relations.sink.RelationsSinkConnector",
         "tasks.max": 1,
         "relations-api.target-url": "relations-api:9000",
 	"topics": "debezium-test.public.outbox"
