@@ -53,6 +53,9 @@ services:
       - ./relations_connect.properties:/opt/kafka/config/relations_connect.properties
       - ./sink.json:/opt/kafka/config/sink.json
       - ./target/relations-connector-1.0-SNAPSHOT.jar:/opt/kafka/plugins/relations-connector-1.0-SNAPSHOT.jar
+    secrets:
+      - source: relations-client-credentials
+        target: /secrets/oidc-client-credentials
 
   relations-api:
     image: "quay.io/cloudservices/kessel-relations:latest"
@@ -117,3 +120,7 @@ configs:
     environment: "SPICEDB_GRPC_PRESHARED_KEY"
   schema_file:
     file: test/spicedb_schema.zed
+
+secrets:
+  relations-client-credentials:
+    file: test/.client_credentials
