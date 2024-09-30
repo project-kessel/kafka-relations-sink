@@ -27,3 +27,6 @@ target/*
 .vscode/*
 .DS_Store
 .idea/*
+
+# maven
+dependency-reduced-pom.xml

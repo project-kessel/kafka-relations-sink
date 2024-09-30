@@ -47,15 +47,19 @@ public class RelationsSinkConnector extends SinkConnector {
     private Map<String, String> props;
     private RelationsGrpcClientsManager relationsClientsManager;
 
+    /**
+     * This method is idempotent and can be called at any time.
+     * @param props
+     * @return
+     */
     static RelationsGrpcClientsManager startOrRetrieveManagerFromProps(Map<String, String> props) {
         SmallRyeConfig config = new SmallRyeConfigBuilder()
                 .withSources(new MapBackedConfigSource(KAFKA_PROPERTIES_NAME, props){})
                 .withMapping(RelationsConfig.class)
                 .build();
         RelationsConfig relationsConfig = config.getConfigMapping(RelationsConfig.class);
-        String targetUrl = relationsConfig.targetUrl();
 
-        return RelationsGrpcClientsManager.forInsecureClients(targetUrl);
+        return RelationsGrpcClientsManager.forClientsWithConfig(relationsConfig);
     }
 
     @Override
