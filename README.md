@@ -9,7 +9,7 @@ After it completes you will see the new "target" directory with the uberJAR insi
 ## How to deploy with RBAC locally
 `docker-compose --env-file ./test/.relations_env -f docker-compose.yaml up` inside the repo.
 
-In order to configure and turn on the connector, run `curl -d @"sink.json" -H "Content-Type: application/json" -X POST http://localhost:8083/connectors`
+In order to configure and turn on the connector, run `curl -d @"relations_sink.json" -H "Content-Type: application/json" -X POST http://localhost:8083/connectors`
 
 If it completes successfully you should get this response from the curl:
 ```

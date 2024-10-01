@@ -51,7 +51,7 @@ services:
     volumes:
       - kafka-connect-logs:/opt/kafka/logs
       - ./relations_connect.properties:/opt/kafka/config/relations_connect.properties
-      - ./sink.json:/opt/kafka/config/sink.json
+      - ./relations_sink.json:/opt/kafka/config/relations_sink.json
       - ./target/relations-connector-1.0-SNAPSHOT.jar:/opt/kafka/plugins/relations-connector-1.0-SNAPSHOT.jar
     secrets:
       - source: relations-client-credentials

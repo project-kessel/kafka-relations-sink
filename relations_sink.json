@@ -6,7 +6,7 @@
         "topics": "debezium-test.public.outbox",
         "relations-api.target-url": "relations-api:9000",
         "relations-api.is-secure-clients": false,
-        "relations-api.authn.mode": "oidc-client-credentials",
+        "relations-api.authn.mode": "disabled",
         "relations-api.authn.client.issuer": "${file:/secrets/oidc-client-credentials:relations-api.authn.client.issuer}",
         "relations-api.authn.client.id": "${file:/secrets/oidc-client-credentials:relations-api.authn.client.id}",
         "relations-api.authn.client.secret": "${file:/secrets/oidc-client-credentials:relations-api.authn.client.secret}"
