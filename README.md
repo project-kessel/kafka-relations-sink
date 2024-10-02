@@ -51,7 +51,7 @@ Offer up a libation to the old gods and the new, because this will hardly work f
    git checkout local_debezium_testing
    ```
 2. In another terminal, clone this repo.
-3. Build the sink connector:
+3. Build the sink connector in 2.:
    ```
    mvn clean package
    ```
