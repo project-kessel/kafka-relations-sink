@@ -50,11 +50,7 @@ Offer up a libation to the old gods and the new, because this will hardly work f
    git fetch wcmitchell
    git checkout local_debezium_testing
    ```
-2. In another terminal, clone the relations sink connector and checkout branch:
-   ```
-   git clone git@github.com:merlante/relations-connector.git
-   git checkout RHCLOUD-34856-Implement-sink-to-relations
-   ```
+2. In another terminal, clone this repo.
 3. Build the sink connector:
    ```
    mvn clean package
