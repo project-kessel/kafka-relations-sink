@@ -3,7 +3,7 @@
     "config": {
         "connector.class": "org.project_kessel.kafka.relations.sink.RelationsSinkConnector",
         "tasks.max": 1,
-        "topics": "debezium-test.public.outbox",
+        "topics": "outbox.event.RelationReplicationEvent",
         "relations-api.target-url": "relations-api:9000",
         "relations-api.is-secure-clients": false,
         "relations-api.authn.mode": "disabled",

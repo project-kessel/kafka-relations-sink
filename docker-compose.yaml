@@ -34,7 +34,7 @@ services:
       KAFKA_CREATE_TOPICS: "storage-topic:1:1:compact,global-id-topic:1:1:compact,input-topic:1:1:compact,logx-topic:1:1:compact,dbx-topic:1:1:compact"
       KAFKA_HEAP_OPTS: "-Xmx500M -Xms500M"
 
-  kafka_connect:
+  relations_sink_connect:
     container_name: relations_sink_connect
     image: registry.redhat.io/amq-streams/kafka-37-rhel9:2.7.0-6
     command: [
@@ -44,7 +44,7 @@ services:
       - kafka
     #mem_limit: 500m
     ports:
-      - "8083:8083"
+      - "8084:8083"
       - "5005:5005"
     environment:
       - JAVA_TOOL_OPTIONS="-agentlib:jdwp=transport=dt_socket,address=*:5005,server=y,suspend=n"

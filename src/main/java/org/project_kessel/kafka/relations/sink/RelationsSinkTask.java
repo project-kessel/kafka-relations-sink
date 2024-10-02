@@ -85,7 +85,9 @@ public class RelationsSinkTask extends SinkTask {
 
                 log.trace("Received replication event. Json: {}", replicationEvent);
 
-                JsonObject payload = replicationEvent.get("payload").getAsJsonObject();
+                /* Schema currently specifies payload as a string (as opposed to a json object) */
+                String payloadString = replicationEvent.get("payload").getAsString();
+                JsonObject payload = JsonParser.parseString(payloadString).getAsJsonObject();
 
                 /* Do tuple deletes */
                 JsonElement relationsToDeleteElement = payload.get("relations_to_delete");
