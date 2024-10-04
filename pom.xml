@@ -4,16 +4,43 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.redhat-insights.relations-connector</groupId>
-  <artifactId>relations-connector</artifactId>
+  <groupId>org.project-kessel</groupId>
+  <artifactId>kafka-relations-sink</artifactId>
   <version>1.0-SNAPSHOT</version>
-
-  <name>relations-connector</name>
+  <packaging>jar</packaging>
+  <name>kafka-relations-sink</name>
+  <description>Kafka connect sink connector plugin for loading relations-api from a Kafka topic.</description>
+  <url>https://github.com/project-kessel/kafka-relations-sink/tree/main</url>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.release>17</maven.compiler.release>
   </properties>
+
+  <issueManagement>
+    <url>https://github.com/project-kessel/kafka-relations-sink/issues</url>
+    <system>GitHub Issues</system>
+  </issueManagement>
+  <licenses>
+    <license>
+      <name>The Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+  <developers>
+    <developer>
+      <name>Mark McLaughlin</name>
+      <email>mmclaugh@redhat.com</email>
+      <organization>Red Hat</organization>
+      <organizationUrl>https://redhat.com</organizationUrl>
+    </developer>
+  </developers>
+  <scm>
+    <url>https://github.com/project-kessel/kafka-relations-sink/tree/main</url>
+    <connection>scm:git:git@github.com/project-kessel/kafka-relations-sink.git</connection>
+    <developerConnection>scm:git:git@github.com/project-kessel/kafka-relations-sink.gitt</developerConnection>
+    <tag>main</tag>
+  </scm>
 
   <dependencyManagement>
     <dependencies>
@@ -75,6 +102,13 @@
   </dependencies>
 
   <build>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+      </extension>
+    </extensions>
     <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
       <plugins>
         <!-- clean lifecycle, see https://maven.apache.org/ref/current/maven-core/lifecycles.html#clean_Lifecycle -->
@@ -147,6 +181,78 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.10.0</version>
+        <configuration>
+          <doclint>all,-missing</doclint>
+        </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>net.nicoulaj.maven.plugins</groupId>
+        <artifactId>checksum-maven-plugin</artifactId>
+        <version>1.11</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>artifacts</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-gpg-plugin</artifactId>
+        <version>3.2.6</version>
+        <executions>
+          <execution>
+            <id>sign-artifacts</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>sign</goal>
+            </goals>
+            <configuration>
+              <!-- key -->
+              <keyname>BD7E7CE1F710FC19E9F35D9CB7F30696FBDAD1D2</keyname>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.sonatype.central</groupId>
+        <artifactId>central-publishing-maven-plugin</artifactId>
+        <version>0.5.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <publishingServerId>central</publishingServerId>
+          <tokenAuth>true</tokenAuth>
+        </configuration>
+      </plugin>
+
     </plugins>
   </build>
 </project>
