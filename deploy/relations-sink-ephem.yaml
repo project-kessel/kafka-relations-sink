@@ -1,0 +1,100 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: relations-sink
+objects:
+  - apiVersion: v1
+    stringData:
+      relations-api.authn.client.issuer: "https://fake_idp/"
+      relations-api.authn.client.id: "fake-sa"
+      relations-api.authn.client.secret: "fake_secret"
+    kind: Secret
+    metadata:
+      name: relations-sink-config
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: connector-configuration-role
+    rules:
+    - apiGroups: [""]
+      resources: ["secrets"]
+      resourceNames: ["relations-sink-config"]
+      verbs: ["get"]
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: connector-configuration-rolebinding
+    subjects:
+    - kind: ServiceAccount
+      name: relations-sink-connect
+      namespace: ${NAMESPACE}
+    roleRef:
+      kind: Role
+      name: connector-configuration-role
+      apiGroup: rbac.authorization.k8s.io
+  - apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaConnect
+    metadata:
+      name: relations-sink
+      annotations:
+        strimzi.io/use-connector-resources: "true"
+    spec:
+      replicas: 1
+      bootstrapServers: "${BOOTSTRAP_SERVERS}:9092"
+      config:
+        config.providers: secrets
+        config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
+        group.id: relations-connect
+        offset.storage.topic: relations-connect-cluster-offsets
+        offset.storage.replication.factor: 1
+        config.storage.topic: relations-connect-cluster-configs
+        config.storage.replication.factor: 1
+        status.storage.topic: relations-connect-cluster-status
+        status.storage.replication.factor: 1
+      build:
+        output:
+          type: docker
+          image: ${RELATIONS_SINK_IMAGE}:${IMAGE_TAG}
+          pushSecret: relations-sink-push-secret
+        plugins:
+          - name: kafka-relations-sink
+            artifacts:
+              - type: maven
+                repository: https://repo1.maven.org/maven2
+                group: org.project-kessel
+                artifact: kafka-relations-sink
+                version: ${VERSION}
+  - apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaConnector
+    metadata:
+      name: relations-sink-connector
+      labels:
+        strimzi.io/cluster: relations-sink
+    spec:
+      class: org.project_kessel.kafka.relations.sink.RelationsSinkConnector
+      tasksMax: 1
+      config:
+        topics: "outbox.event.RelationReplicationEvent"
+        relations-api.target-url: "kessel-relations-api:9000"
+        relations-api.is-secure-clients: false
+        relations-api.authn.mode: "disabled"
+        relations-api.authn.client.issuer: ${secrets:relations-sink-config:relations-api.authn.client.issuer}
+        relations-api.authn.client.id: ${secrets:relations-sink-config:relations-api.authn.client.id}
+        relations-api.authn.client.secret: ${secrets:relations-sink-config:relations-api.authn.client.secret}
+parameters:
+  - description: Bootstrap server address
+    name: BOOTSTRAP_SERVERS
+    required: true
+  - description: Quay repo to store KafkaConnect images after build
+    name: RELATIONS_SINK_IMAGE
+    value: quay.io/cloudservices/kafka-relations-sink
+  - description: Image Tag
+    name: IMAGE_TAG
+    value: ephem-test
+  - description: relations sink plugin version from Maven
+    name: VERSION
+    required: true
+    value: "0.1"
+  - description: namespace for connector
+    name: NAMESPACE
+    required: true
