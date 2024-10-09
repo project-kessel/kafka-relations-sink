@@ -11,7 +11,7 @@ objects:
         strimzi.io/cluster: ${KAFKA_CONNECT_INSTANCE}
     spec:
       class: org.project_kessel.kafka.relations.sink.RelationsSinkConnector
-      tasksMax: ${MAX_TASKS}
+      tasksMax: ${{MAX_TASKS}}
       config:
         topics: "outbox.event.RelationReplicationEvent"
         relations-api.target-url: "kessel-relations-api:9000"
@@ -33,3 +33,6 @@ parameters:
 - name: CLIENT_SECRET
   required: true
   description: relations api auth client secret
+- name: MAX_TASKS
+  description: sets the max number of tasksMax
+  value: "1"
