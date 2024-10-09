@@ -36,8 +36,8 @@ expected output:
 rbac/thing:my_thing t_workspace rbac/workspace:my_workspace_2
 ```
 
-## RBAC end to end testing 
-This setup should allow you to test creating a replication event from an insert in the outbox table and have it create 
+## RBAC end to end testing
+This setup should allow you to test creating a replication event from an insert in the outbox table and have it create
 a relationship in the relations-api. Flow:
 
 Outbox table -> debezium connector -> kafka topic -> relations sink connector -> relations-api -> spicedb
@@ -63,7 +63,7 @@ Offer up a libation to the old gods and the new, because this will hardly work f
    relations_connect.properties
    relations_sink.json
    ```
-5. Copy all lines in `docker-compose.yaml` in 2. from the line with 
+5. Copy all lines in `docker-compose.yaml` in 2. from the line with
    ```
    relations_sink_connect:
    ```
@@ -120,3 +120,35 @@ Offer up a libation to the old gods and the new, because this will hardly work f
    ```
 14. The docker compose logs will show some spicedb and relation-api lines as well showing that writes happened if all is
    working.
+
+
+## Deploy to Ephemeral
+
+**Prerequisites**
+
+Since the connect pod is built as part of reconciling the CR, you will need to provide:
+* Your own personal Quay repo for testing the build and for pulling the conncet pods
+* A robot account secret for this repo so that the operator can push the image to Quay
+
+For more details on creating a robot account, see the [official docs](https://docs.redhat.com/en/documentation/red_hat_quay/3.3/html/use_red_hat_quay/use-quay-manage-repo#allow-robot-access-user-repo). Once you have the robot account, download the Kubernetes Secret file from Quay and save it for later. Make sure to rename to Secret (as in `metadata.name` not the file name) to `relations-sink-push-secret`
+
+1) Deploy the Relations API (See [Internal Guide](https://cuddly-tribble-gq7r66v.pages.github.io/kessel/ephemeral/))
+2) Create the push secret you downloaded into your ephmeral namespace: `oc create -f path/to/secret -n NAMESPACE`
+3) Capture the address of the Kafka Bootstrap service
+```shell
+BOOTSTRAP_SERVERS=$(oc get svc -o json | jq -r '.items[] | select(.metadata.name | contains("bootstrap")) | "\(.metadata.name).\(.metadata.namespace).svc"')
+```
+4) Deploy using the OpenShift template
+```shell
+NAMESPACE=YOUR_EPHEMERAL_NAMESPACE_NAME
+RELATIONS_SINK_IMAGE=YOUR_QUAY_REPO_NAME
+IMAGE_TAG=$(git rev-parse --short HEAD)
+
+oc process --local -f deploy/relations-sink-ephem.yaml \
+   -p NAMESPACE=$NAMESPACE \
+   -p RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
+   -p BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS \
+   -p IMAGE_TAG=$IMAGE_TAG | oc apply -n $NAMESPACE -f -
+```
+
+

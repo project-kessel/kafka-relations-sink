@@ -1,0 +1,35 @@
+apiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: relations-sink
+objects:
+  - apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaConnector
+    metadata:
+      name: relations-sink-connector
+      labels:
+        strimzi.io/cluster: ${KAFKA_CONNECT_INSTANCE}
+    spec:
+      class: org.project_kessel.kafka.relations.sink.RelationsSinkConnector
+      tasksMax: ${MAX_TASKS}
+      config:
+        topics: "outbox.event.RelationReplicationEvent"
+        relations-api.target-url: "kessel-relations-api:9000"
+        relations-api.is-secure-clients: false
+        relations-api.authn.mode: "disabled"
+        relations-api.authn.client.issuer: ${CLIENT_ISSUER}
+        relations-api.authn.client.id: ${CLIENT_ID}
+        relations-api.authn.client.secret: ${CLIENT_SECRET}
+parameters:
+- name: KAFKA_CONNECT_INSTANCE
+  value: platform-kafka-connect
+  description: Name of the target Kafka Connect instance for Connector
+- name: CLIENT_ISSUER
+  required: true
+  description: relations api auth client issuer
+- name: CLIENT_ID
+  required: true
+  description: relations api auth client id
+- name: CLIENT_SECRET
+  required: true
+  description: relations api auth client secret
