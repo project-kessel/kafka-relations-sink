@@ -90,13 +90,13 @@ public class RelationsSinkTask extends SinkTask {
                 JsonObject payload = JsonParser.parseString(payloadString).getAsJsonObject();
 
                 /* Do tuple deletes */
-                JsonElement relationsToDeleteElement = payload.get("relations_to_delete");
+                JsonElement relationsToDeleteElement = payload.get("relations_to_remove");
                 if (relationsToDeleteElement != null && relationsToDeleteElement.isJsonArray()) {
                     JsonArray relationsToDelete = relationsToDeleteElement.getAsJsonArray();
-                    log.trace("Relations to delete: {}", relationsToDelete);
+                    log.trace("Relations to remove: {}", relationsToDelete);
 
                     jsonArrayToDeleteRequestStream(relationsToDelete).forEach(relationTuplesClient::deleteTuples);
-                    log.trace("Relations deleted");
+                    log.trace("Relations removed");
                 }
 
                 /* Do tuple creates */
@@ -110,7 +110,7 @@ public class RelationsSinkTask extends SinkTask {
                             .build();
 
                     relationTuplesClient.createTuples(ctr);
-                    log.trace("Relations deleted");
+                    log.trace("Relations added");
                 }
             } catch (Exception e) {
                 e.printStackTrace();
