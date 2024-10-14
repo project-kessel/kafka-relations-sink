@@ -13,7 +13,7 @@ objects:
       class: org.project_kessel.kafka.relations.sink.RelationsSinkConnector
       tasksMax: ${{MAX_TASKS}}
       config:
-        topics: "outbox.event.RelationReplicationEvent"
+        topics: "outbox.event.relations-replication-event"
         relations-api.target-url: "kessel-relations-api:9000"
         relations-api.is-secure-clients: false
         relations-api.authn.mode: "disabled"
