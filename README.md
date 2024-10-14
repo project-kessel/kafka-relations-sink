@@ -126,24 +126,33 @@ Offer up a libation to the old gods and the new, because this will hardly work f
 
 **Prerequisites**
 
-Since the connect pod is built as part of reconciling the CR, you will need to provide:
+The container image used to run the Kafka Connect cluster (created via a `KafkaConnect` CR) is built as part of operator reconciliaion and must be pushed to a docker registry before it can be used. This process uses Quay, and will require:
 * Your own personal Quay repo for testing the build and for pulling the conncet pods
 * A robot account secret for this repo so that the operator can push the image to Quay
 
+> NOTE: The reason a personal quay is used is because creating a push secret for a single unified Quay repo (like quay.io/cloudservices) to any namespace is not really possible without involving vault CLI and without exposing that secret in a public repo. This is to ensure the security of our production quay source.
+
 For more details on creating a robot account, see the [official docs](https://docs.redhat.com/en/documentation/red_hat_quay/3.3/html/use_red_hat_quay/use-quay-manage-repo#allow-robot-access-user-repo). Once you have the robot account, download the Kubernetes Secret file from Quay and save it for later. Make sure to rename to Secret (as in `metadata.name` not the file name) to `relations-sink-push-secret`
 
+**To Deploy using the OpenShift Template:**
 1) Deploy the Relations API (See [Internal Guide](https://cuddly-tribble-gq7r66v.pages.github.io/kessel/ephemeral/))
-2) Create the push secret you downloaded into your ephmeral namespace: `oc create -f path/to/secret -n NAMESPACE`
-3) Capture the address of the Kafka Bootstrap service
-```shell
-BOOTSTRAP_SERVERS=$(oc get svc -o json | jq -r '.items[] | select(.metadata.name | contains("bootstrap")) | "\(.metadata.name).\(.metadata.namespace).svc"')
-```
-4) Deploy using the OpenShift template
+
+2) Configure required parameters
 ```shell
 NAMESPACE=YOUR_EPHEMERAL_NAMESPACE_NAME
 RELATIONS_SINK_IMAGE=YOUR_QUAY_REPO_NAME
 IMAGE_TAG=$(git rev-parse --short HEAD)
+```
 
+3) Create the push secret you downloaded into your ephmeral namespace: `oc create -f path/to/secret -n $NAMESPACE`
+
+4) Capture the address of the Kafka Bootstrap service
+```shell
+BOOTSTRAP_SERVERS=$(oc get svc -n $NAMESPACE -o json | jq -r '.items[] | select(.metadata.name | test("^env-ephemeral.*-kafka-bootstrap")) | "\(.metadata.name).\(.metadata.namespace).svc"')
+```
+
+5) Deploy using the OpenShift template
+```shell
 oc process --local -f deploy/relations-sink-ephem.yaml \
    -p NAMESPACE=$NAMESPACE \
    -p RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
@@ -151,4 +160,13 @@ oc process --local -f deploy/relations-sink-ephem.yaml \
    -p IMAGE_TAG=$IMAGE_TAG | oc apply -n $NAMESPACE -f -
 ```
 
+**To Deploy using Bonfire**
 
+Complete steps 1-4 above, then
+```shell
+bonfire deploy kessel -C relations-sink-ephemeral \
+   -p relations-sink-ephemeral/NAMESPACE=$NAMESPACE \
+   -p relations-sink-ephemeral/RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
+   -p relations-sink-ephemeral/BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS \
+   -p relations-sink-ephemeral/IMAGE_TAG=$IMAGE_TAG
+```
