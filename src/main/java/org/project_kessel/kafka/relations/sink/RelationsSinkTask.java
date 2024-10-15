@@ -117,7 +117,7 @@ public class RelationsSinkTask extends SinkTask {
                     log.trace("Relations added");
                 }
             } catch (StatusRuntimeException e) {
-                /* Handle retryable exceptions here (using KafkaConnect's retry mechanism).
+                /* Handle retriable exceptions here (using KafkaConnect's retry mechanism).
                  *
                  * No retriable checked exceptions.
                  * Known retriable unchecked exceptions:
