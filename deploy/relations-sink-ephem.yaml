@@ -75,7 +75,7 @@ objects:
       tasksMax: 1
       config:
         topics: "outbox.event.relations-replication-event"
-        relations-api.target-url: "kessel-relations-api:9000"
+        relations-api.target-url: ${RELATIONS_API_URL}
         relations-api.is-secure-clients: false
         relations-api.authn.mode: "disabled"
         relations-api.authn.client.issuer: ${secrets:relations-sink-config:relations-api.authn.client.issuer}
@@ -97,4 +97,8 @@ parameters:
     value: "0.1"
   - description: namespace for connector
     name: NAMESPACE
+    required: true
+  - description: Address of the relations api service
+    name: RELATIONS_API_URL
+    value: "kessel-relations-api:9000"
     required: true
