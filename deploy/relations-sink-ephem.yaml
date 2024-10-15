@@ -94,7 +94,7 @@ parameters:
   - description: relations sink plugin version from Maven
     name: VERSION
     required: true
-    value: "0.2"
+    value: "0.3"
   - description: namespace for connector
     name: NAMESPACE
     required: true
