@@ -28,8 +28,10 @@ import com.google.common.collect.Streams;
 import com.google.gson.*;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
+import io.grpc.StatusRuntimeException;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.apache.kafka.connect.json.JsonConverter;
@@ -76,6 +78,7 @@ public class RelationsSinkTask extends SinkTask {
         for (SinkRecord record : sinkRecords) {
             log.trace("Processing record {}", record.value());
             try {
+                // TODO: Replace string and json wrangling below with proper "replication event" schema
                 byte[] rawJson = jsonConverter.fromConnectData(
                         topic,
                         record.valueSchema(),
@@ -107,13 +110,25 @@ public class RelationsSinkTask extends SinkTask {
 
                     CreateTuplesRequest ctr = CreateTuplesRequest.newBuilder()
                             .addAllTuples(jsonArrayToRelationshipList(relationsToAdd))
+                            .setUpsert(true)
                             .build();
 
                     relationTuplesClient.createTuples(ctr);
                     log.trace("Relations added");
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (StatusRuntimeException e) {
+                /* Handle retriable exceptions here (using KafkaConnect's retry mechanism).
+                 *
+                 * No retriable checked exceptions.
+                 * Known retriable unchecked exceptions:
+                 * - io.grpc.StatusRuntimeException: grpc connectivity issue when connecting to relations-api
+                 */
+                throw new RetriableException("A grpc-related error occurred when trying to contact the relations-api", e);
+                /*
+                 * Note on consistency:
+                 * Task will be completely re-run on failure, therefore all calls must be idempotent.
+                 * e.g. creates must have touch/upsert semantic, deletes must not fail in no relation is deleted.
+                 */
             }
         }
     }
