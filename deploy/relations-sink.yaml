@@ -14,7 +14,7 @@ objects:
       tasksMax: ${{MAX_TASKS}}
       config:
         topics: "outbox.event.relations-replication-event"
-        relations-api.target-url: "kessel-relations-api:9000"
+        relations-api.target-url: ${RELATIONS_API_URL}
         relations-api.is-secure-clients: false
         relations-api.authn.mode: "disabled"
         relations-api.authn.client.issuer: ${CLIENT_ISSUER}
@@ -36,3 +36,7 @@ parameters:
 - name: MAX_TASKS
   description: sets the max number of tasksMax
   value: "1"
+- description: Address of the relations api service
+  name: RELATIONS_API_URL
+  value: "kessel-relations-api.kessel-stage.svc:9000"
+  required: true
