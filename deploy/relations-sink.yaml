@@ -16,7 +16,7 @@ objects:
         topics: "outbox.event.relations-replication-event"
         relations-api.target-url: ${RELATIONS_API_URL}
         relations-api.is-secure-clients: false
-        relations-api.authn.mode: "disabled"
+        relations-api.authn.mode: "oidc-client-credentials"
         relations-api.authn.client.issuer: ${CLIENT_ISSUER}
         relations-api.authn.client.id: ${CLIENT_ID}
         relations-api.authn.client.secret: ${CLIENT_SECRET}
