@@ -29,6 +29,8 @@ import com.google.gson.*;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import io.grpc.StatusRuntimeException;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.errors.RetriableException;
@@ -103,18 +105,41 @@ public class RelationsSinkTask extends SinkTask {
                 }
 
                 /* Do tuple creates */
-                JsonElement relationsToAddElement = payload.get("relations_to_add");
-                if (relationsToAddElement != null && relationsToAddElement.isJsonArray()) {
-                    JsonArray relationsToAdd = relationsToAddElement.getAsJsonArray();
-                    log.trace("Relations to add: {}", relationsToAddElement.getAsJsonArray());
+//                JsonElement relationsToAddElement = payload.get("relations_to_add");
+//                if (relationsToAddElement != null && relationsToAddElement.isJsonArray()) {
+//                    JsonArray relationsToAdd = relationsToAddElement.getAsJsonArray();
+//                    log.trace("Relations to add: {}", relationsToAddElement.getAsJsonArray());
+//
+//                    CreateTuplesRequest ctr = CreateTuplesRequest.newBuilder()
+//                            .addAllTuples(jsonArrayToRelationshipList(relationsToAdd))
+//                            .setUpsert(true)
+//                            .build();
+//
+//                    relationTuplesClient.createTuples(ctr);
+//                    log.trace("Relations added");
+//                }
 
-                    CreateTuplesRequest ctr = CreateTuplesRequest.newBuilder()
-                            .addAllTuples(jsonArrayToRelationshipList(relationsToAdd))
-                            .setUpsert(true)
-                            .build();
-
-                    relationTuplesClient.createTuples(ctr);
-                    log.trace("Relations added");
+                /* Do bulk import */
+                //JsonElement relationsToBulkImportElement = payload.get("relations_to_bulk_import");
+                JsonElement relationsToBulkImportElement = payload.get("relations_to_add");
+                if (relationsToBulkImportElement != null && relationsToBulkImportElement.isJsonArray()) {
+                    try {
+                        JsonArray relationsToBulkImport = relationsToBulkImportElement.getAsJsonArray();
+                        // TODO: assuming for the moment that number of relations imported equals number attempted
+                        var responseUni = relationTuplesClient.importBulkTuplesUni(jsonArrayToImportBulkTuplesRequestMulti(
+                                relationsToBulkImport));
+                        log.info("Relations bulk imported: {}", responseUni.onItem()
+                                .transform(ImportBulkTuplesResponse::getNumImported)
+                                .await().indefinitely());
+                        log.trace("Relations to add: {}", relationsToBulkImportElement.getAsJsonArray());
+                    }
+                    catch(StatusRuntimeException e) {
+                        if(e.getMessage().startsWith("ALREADY_EXISTS: error import bulk tuples:")) {
+                            ordinaryCreateFallback(relationsToBulkImportElement);
+                        } else {
+                            throw e;
+                        }
+                    }
                 }
             } catch (StatusRuntimeException e) {
                 /* Handle retriable exceptions here (using KafkaConnect's retry mechanism).
@@ -143,10 +168,37 @@ public class RelationsSinkTask extends SinkTask {
         log.debug("Stopping RelationsSinkTask -- currently a no op");
     }
 
+    private void ordinaryCreateFallback(JsonElement relationsToAddElement) {
+        if (relationsToAddElement != null && relationsToAddElement.isJsonArray()) {
+            JsonArray relationsToAdd = relationsToAddElement.getAsJsonArray();
+            log.trace("Relations to add: {}", relationsToAddElement.getAsJsonArray());
+
+            CreateTuplesRequest ctr = CreateTuplesRequest.newBuilder()
+                    .addAllTuples(jsonArrayToRelationshipList(relationsToAdd))
+                    .setUpsert(true)
+                    .build();
+
+            relationTuplesClient.createTuples(ctr);
+            log.info("Relations added using FALLBACK.");
+        }
+    }
+
     private static Stream<DeleteTuplesRequest> jsonArrayToDeleteRequestStream(JsonArray relations) {
         return Streams.stream(relations.iterator())
                 .map(JsonElement::getAsJsonObject)
                 .map(RelationsSinkTask::jsonToDeleteRequest);
+    }
+
+    private static Multi<ImportBulkTuplesRequest> jsonArrayToImportBulkTuplesRequestMulti(JsonArray relations) {
+        var relationsStream = Streams.stream(relations.iterator())
+                .map(JsonElement::getAsJsonObject)
+                .map(RelationsSinkTask::jsonToRelationship);
+        var importBulkTuplesRequest = ImportBulkTuplesRequest.newBuilder()
+                .addAllTuples(relationsStream::iterator)
+                .build();
+
+        // add all relations into a single batch. Can do chunking if need be in the future.
+        return Multi.createFrom().item(importBulkTuplesRequest);
     }
 
     private static List<Relationship> jsonArrayToRelationshipList(JsonArray relations) {
