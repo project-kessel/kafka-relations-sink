@@ -71,7 +71,7 @@ public class RelationsSinkTask extends SinkTask {
 
     @Override
     public String version() {
-        return "v0.1";
+        return "v0.2";
     }
 
     @Override
