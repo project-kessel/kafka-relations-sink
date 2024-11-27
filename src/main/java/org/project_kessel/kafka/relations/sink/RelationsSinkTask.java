@@ -61,6 +61,11 @@ public class RelationsSinkTask extends SinkTask {
     private final ExponentialBackoff retryBackoff = new ExponentialBackoff(RETRY_BACKOFF_INITIAL_INTERVAL_MILLIS,
             RETRY_BACKOFF_MULTIPLIER, RETRY_BACKOFF_MAX_INTERVAL_MILLIS, RETRY_BACKOFF_JITTER);
 
+    /**
+     * putAttempts is used for retry backoffs in put(), below
+     * */
+    private long putAttempts = 0;
+
     public RelationsSinkTask() {
     }
 
@@ -79,9 +84,6 @@ public class RelationsSinkTask extends SinkTask {
         topic = props.get(TOPIC_CONFIG);
         log.trace("Done starting RelationsSinkTask");
     }
-
-    /* putAttempts is used for retry backoffs in put(), below */
-    private long putAttempts = 0;
 
     @Override
     public void put(Collection<SinkRecord> sinkRecords) {
