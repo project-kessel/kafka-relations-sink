@@ -31,6 +31,7 @@ import com.google.protobuf.util.JsonFormat;
 import io.grpc.StatusRuntimeException;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.utils.ExponentialBackoff;
 import org.apache.kafka.connect.errors.RetriableException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
@@ -48,17 +49,29 @@ import static org.apache.kafka.common.requests.DescribeConfigsResponse.ConfigSou
  */
 public class RelationsSinkTask extends SinkTask {
     private static final Logger log = LoggerFactory.getLogger(RelationsSinkTask.class);
+    private static final long RETRY_BACKOFF_INITIAL_INTERVAL_MILLIS = 500L;
+    private static final int RETRY_BACKOFF_MULTIPLIER = 2;
+    private static final long RETRY_BACKOFF_MAX_INTERVAL_MILLIS = 60_000L;
+    private static final double RETRY_BACKOFF_JITTER = 0.2d;
 
     private RelationTuplesClient relationTuplesClient;
     private String topic;
     private final JsonConverter jsonConverter = new JsonConverter();
+
+    private final ExponentialBackoff retryBackoff = new ExponentialBackoff(RETRY_BACKOFF_INITIAL_INTERVAL_MILLIS,
+            RETRY_BACKOFF_MULTIPLIER, RETRY_BACKOFF_MAX_INTERVAL_MILLIS, RETRY_BACKOFF_JITTER);
+
+    /**
+     * putAttempts is used for retry backoffs in put(), below
+     * */
+    private long putAttempts = 0;
 
     public RelationsSinkTask() {
     }
 
     @Override
     public String version() {
-        return "v0.1";
+        return "v0.2";
     }
 
     @Override
@@ -116,6 +129,9 @@ public class RelationsSinkTask extends SinkTask {
                     relationTuplesClient.createTuples(ctr);
                     log.trace("Relations added");
                 }
+
+                /* reset putAttempts, which increment when there is a retry, below */
+                putAttempts = 0;
             } catch (StatusRuntimeException e) {
                 /* Handle retriable exceptions here (using KafkaConnect's retry mechanism).
                  *
@@ -123,11 +139,15 @@ public class RelationsSinkTask extends SinkTask {
                  * Known retriable unchecked exceptions:
                  * - io.grpc.StatusRuntimeException: grpc connectivity issue when connecting to relations-api
                  */
+
+                /* Set an exponential retry backoff in the context for this RetriableException */
+                context.timeout(retryBackoff.backoff(putAttempts++));
+
                 throw new RetriableException("A grpc-related error occurred when trying to contact the relations-api", e);
                 /*
                  * Note on consistency:
                  * Task will be completely re-run on failure, therefore all calls must be idempotent.
-                 * e.g. creates must have touch/upsert semantic, deletes must not fail in no relation is deleted.
+                 * e.g. creates must have touch/upsert semantic, deletes must not fail if no relation is deleted.
                  */
             }
         }
