@@ -6,6 +6,13 @@ To build the uberJAR run:
 `mvn package`
 After it completes you will see the new "target" directory with the uberJAR inside.
 
+**To build the Connect Docker Image**
+
+```shell
+IMAGE=quay.io/YOUR_REPOSITORY/kafka-relations-sink
+make docker-build-push
+```
+
 ## How to deploy with RBAC locally
 `docker-compose --env-file ./test/.relations_env -f docker-compose.yaml up` inside the repo.
 
@@ -169,4 +176,63 @@ bonfire deploy kessel -C relations-sink-ephemeral \
    -p relations-sink-ephemeral/RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
    -p relations-sink-ephemeral/BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS \
    -p relations-sink-ephemeral/IMAGE_TAG=$IMAGE_TAG
+```
+
+## Test in Ephemeral
+
+To test the sink is working in ephemeral, you'll need
+* Relations API running with the correct schema loaded ([LINK](https://github.com/RedHatInsights/rbac-config/blob/master/configs/prod/schemas/schema.zed))
+* Relations Sink deployed and running
+* `zed` cli configured to talk to SpiceDB
+
+
+1) Setup Zed and SpiceDB
+
+```shell
+# port forward spicedb
+oc port-forward svc/relations-spicedb 50051:50051
+
+# set your zed context for ephemeral
+zed context set local localhost:50051 averysecretpresharedkey --insecure
+
+# check the schema is loaded
+zed schema read
+
+# if nothing is set, download the schema file from the link above and write it
+zed schema write /path/to/schema.zed
+```
+
+2) Verify the Connect cluster and Connector are healthy
+
+```shell
+oc get kc relations-sink -o jsonpath='{.status.conditions[].status}{"\n"}'
+oc get kctr relations-sink-connector -o jsonpath='{.status.conditions[].status}{"\n"}'
+
+# The output of both commands above should be "True"
+```
+
+3) Access the connect pod
+
+```shell
+oc rsh relations-sink-connect-0
+```
+
+2) Produce an event to the topic
+
+```shell
+# Note youll need to update the bootstrap server address with your bootstrap server address
+# If you deployed using the above method -- `echo $BOOTSTRAP_SERVERS`
+echo '{"schema":{"type":"string","optional":true,"name":"io.debezium.data.Json","version":1},"payload":"{\"relations_to_add\": [{\"subject\": {\"subject\": {\"id\": \"my_workspace\", \"type\": {\"name\": \"workspace\", \"namespace\": \"rbac\"}}}, \"relation\": \"t_workspace\", \"resource\": {\"id\": \"my_integration\", \"type\": {\"name\": \"integration\", \"namespace\": \"notifications\"}}}], \"relations_to_remove\": []}"}' | bin/kafka-console-producer.sh --bootstrap-server <YOUR_BOOTSTRAP_SERVER>:9092 --topic outbox.event.relations-replication-event
+```
+
+3) Exit the pod and test with `zed`
+
+```shell
+# port forward spicedb
+oc port-forward svc/relations-spicedb 50051:50051
+
+zed relationship read notifications/integration
+
+# expected output
+notifications/integration:my_integration t_workspace rbac/workspace:my_workspace
 ```
