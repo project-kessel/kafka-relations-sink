@@ -73,16 +73,17 @@ parameters:
   - description: Bootstrap server address
     name: BOOTSTRAP_SERVERS
     required: true
-  - description: Quay repo to store KafkaConnect images after build
+  - description: Quay repo for the Kafka Connect image
     name: RELATIONS_SINK_IMAGE
     value: quay.io/cloudservices/kafka-relations-sink
   - description: Image Tag
     name: IMAGE_TAG
-    value: ephem-test
+    value: latest
+    required: true
   - description: relations sink plugin version from Maven
     name: VERSION
     required: true
-    value: "0.3"
+    value: "0.4"
   - description: namespace for connector
     name: NAMESPACE
     required: true
