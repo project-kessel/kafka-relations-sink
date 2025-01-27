@@ -16,7 +16,7 @@ objects:
         topics: "outbox.event.relations-replication-event"
         relations-api.target-url: ${RELATIONS_API_URL}
         relations-api.is-secure-clients: false
-        relations-api.authn.mode: "oidc-client-credentials"
+        relations-api.authn.mode: ${AUTHN_MODE}
         relations-api.authn.client.issuer: ${CLIENT_ISSUER}
         relations-api.authn.client.id: ${CLIENT_ID}
         relations-api.authn.client.secret: ${CLIENT_SECRET}
@@ -40,3 +40,7 @@ parameters:
   name: RELATIONS_API_URL
   value: "kessel-relations-api.kessel-stage.svc:9000"
   required: true
+- name: AUTHN_MODE
+  description: "Configures the authentication mode"
+  required: true
+  value: "oidc-client-credentials"
