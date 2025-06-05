@@ -162,13 +162,13 @@ zed schema write /path/to/schema.zed
 
 ```shell
 # The ClowdEnv name is used to name Kafka objects -- setting this value makes things easier later
-ENV_NAME="env-$(bonfire namespace describe -o json | jq -r '.namespace')"
-oc get kc $ENV_NAME -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
+CLD_ENV_NAME="env-$(bonfire namespace describe -o json | jq -r '.namespace')"
+oc get kc $CLD_ENV_NAME -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
 oc get kctr relations-sink-connector -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
 
 # The output of both commands above should be the object name and "True"
 # example:
-# oc get kc $ENV_NAME -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
+# oc get kc $CLD_ENV_NAME -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
 # env-ephemeral-snkcy4    True
 #
 # oc get kctr relations-sink-connector -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
@@ -178,14 +178,14 @@ oc get kctr relations-sink-connector -o jsonpath='{.metadata.name}{"\t"}{.status
 3) Access the connect pod
 
 ```shell
-# this passes ENV_NAME to the container to make it easier to set bootstrap server address
-oc rsh "$ENV_NAME-connect-0" /bin/bash -c "ENV_NAME=$ENV_NAME bash"
+# this passes CLD_ENV_NAME to the container to make it easier to set bootstrap server address
+oc rsh "$CLD_ENV_NAME-connect-0" /bin/bash -c "CLD_ENV_NAME=$CLD_ENV_NAME bash"
 ```
 
 2) Produce an event to the topic
 
 ```shell
-echo '{"schema":{"type":"string","optional":true,"name":"io.debezium.data.Json","version":1},"payload":"{\"relations_to_add\": [{\"subject\": {\"subject\": {\"id\": \"my_workspace\", \"type\": {\"name\": \"workspace\", \"namespace\": \"rbac\"}}}, \"relation\": \"t_workspace\", \"resource\": {\"id\": \"my_integration\", \"type\": {\"name\": \"integration\", \"namespace\": \"notifications\"}}}], \"relations_to_remove\": []}"}' | bin/kafka-console-producer.sh --bootstrap-server $ENV_NAME-kafka-bootstrap:9092 --topic outbox.event.relations-replication-event
+echo '{"schema":{"type":"string","optional":true,"name":"io.debezium.data.Json","version":1},"payload":"{\"relations_to_add\": [{\"subject\": {\"subject\": {\"id\": \"my_workspace\", \"type\": {\"name\": \"workspace\", \"namespace\": \"rbac\"}}}, \"relation\": \"t_workspace\", \"resource\": {\"id\": \"my_integration\", \"type\": {\"name\": \"integration\", \"namespace\": \"notifications\"}}}], \"relations_to_remove\": []}"}' | bin/kafka-console-producer.sh --bootstrap-server $CLD_ENV_NAME-kafka-bootstrap:9092 --topic outbox.event.relations-replication-event
 ```
 
 3) Exit the pod and test with `zed`
