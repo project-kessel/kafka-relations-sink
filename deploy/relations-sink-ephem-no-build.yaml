@@ -11,53 +11,12 @@ objects:
     kind: Secret
     metadata:
       name: relations-sink-config
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: Role
-    metadata:
-      name: connector-configuration-role
-    rules:
-    - apiGroups: [""]
-      resources: ["secrets"]
-      resourceNames: ["relations-sink-config"]
-      verbs: ["get"]
-  - apiVersion: rbac.authorization.k8s.io/v1
-    kind: RoleBinding
-    metadata:
-      name: connector-configuration-rolebinding
-    subjects:
-    - kind: ServiceAccount
-      name: relations-sink-connect
-      namespace: ${NAMESPACE}
-    roleRef:
-      kind: Role
-      name: connector-configuration-role
-      apiGroup: rbac.authorization.k8s.io
-  - apiVersion: kafka.strimzi.io/v1beta2
-    kind: KafkaConnect
-    metadata:
-      name: relations-sink
-      annotations:
-        strimzi.io/use-connector-resources: "true"
-    spec:
-      replicas: 1
-      bootstrapServers: "${BOOTSTRAP_SERVERS}:9092"
-      config:
-        config.providers: secrets
-        config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
-        group.id: relations-connect
-        offset.storage.topic: relations-connect-cluster-offsets
-        offset.storage.replication.factor: 1
-        config.storage.topic: relations-connect-cluster-configs
-        config.storage.replication.factor: 1
-        status.storage.topic: relations-connect-cluster-status
-        status.storage.replication.factor: 1
-      image: ${RELATIONS_SINK_IMAGE}:${IMAGE_TAG}
   - apiVersion: kafka.strimzi.io/v1beta2
     kind: KafkaConnector
     metadata:
       name: relations-sink-connector
       labels:
-        strimzi.io/cluster: relations-sink
+        strimzi.io/cluster: ${ENV_NAME}
     spec:
       class: org.project_kessel.kafka.relations.sink.RelationsSinkConnector
       tasksMax: 1
@@ -70,22 +29,8 @@ objects:
         relations-api.authn.client.id: ${secrets:relations-sink-config:relations-api.authn.client.id}
         relations-api.authn.client.secret: ${secrets:relations-sink-config:relations-api.authn.client.secret}
 parameters:
-  - description: Bootstrap server address
-    name: BOOTSTRAP_SERVERS
-    required: true
-  - description: Quay repo for the Kafka Connect image
-    name: RELATIONS_SINK_IMAGE
-    value: quay.io/cloudservices/kafka-relations-sink
-  - description: Image Tag
-    name: IMAGE_TAG
-    value: latest
-    required: true
-  - description: relations sink plugin version from Maven
-    name: VERSION
-    required: true
-    value: "0.5"
-  - description: namespace for connector
-    name: NAMESPACE
+  - description: ClowdEnvironment name (ephemeral, stage, prod)
+    name: ENV_NAME
     required: true
   - description: Address of the relations api service
     name: RELATIONS_API_URL
