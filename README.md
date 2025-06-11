@@ -129,55 +129,10 @@ Offer up a libation to the old gods and the new, because this will hardly work f
    working.
 
 
-## Deploy to Ephemeral
+## Deploy to Ephemeral using Bonfire
 
-**Prerequisites**:
-For the Kafka Connect cluster you'll need to provide the image to use for the connect pods. You can leverage one of the AppSRE built images from our pipeline ([LINK](https://quay.io/repository/cloudservices/kafka-relations-sink?tab=tags&tag=latest)) or build your own if you need to test changes (see [How to Build](#how-to-build))
-
-**To Deploy using the OpenShift Template:**
-1) Deploy the Relations API (See [Internal Guide](https://cuddly-tribble-gq7r66v.pages.github.io/kessel/ephemeral/))
-
-2) Configure required parameters
 ```shell
-NAMESPACE=<YOUR_EPHEMERAL_NAMESPACE_NAME>
-RELATIONS_SINK_IMAGE=<QUAY_REPO_PATH_TO_SINK_IMAGE>
-IMAGE_TAG=<QUAY_IMAGE_TAG>
-```
-
-3) Capture the address of the Kafka Bootstrap service
-```shell
-BOOTSTRAP_SERVERS=$(oc get svc -n $NAMESPACE -o json | jq -r '.items[] | select(.metadata.name | test("^env-ephemeral.*-kafka-bootstrap")) | "\(.metadata.name).\(.metadata.namespace).svc"')
-```
-
-4) Deploy using the OpenShift template
-```shell
-oc process --local -f deploy/relations-sink-ephem-no-build.yaml \
-   -p NAMESPACE=$NAMESPACE \
-   -p RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
-   -p BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS \
-   -p IMAGE_TAG=$IMAGE_TAG | oc apply -n $NAMESPACE -f -
-
-# for example, to run connect image quay.io/cloudservices/kafka-relations-sink:a322a45
-NAMESPACE=ephemeral-12345
-RELATIONS_SINK_IMAGE=quay.io/cloudservices/kafka-relations-sink
-IMAGE_TAG=a322a45
-
-oc process --local -f deploy/relations-sink-ephem-no-build.yaml \
-   -p NAMESPACE=$NAMESPACE \
-   -p RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
-   -p BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS \
-   -p IMAGE_TAG=$IMAGE_TAG | oc apply -n $NAMESPACE -f -
-```
-
-**To Deploy using Bonfire**
-
-Complete steps 1-3 above, then
-```shell
-bonfire deploy kessel -C relations-sink-ephemeral \
-   -p relations-sink-ephemeral/NAMESPACE=$NAMESPACE \
-   -p relations-sink-ephemeral/RELATIONS_SINK_IMAGE=$RELATIONS_SINK_IMAGE \
-   -p relations-sink-ephemeral/BOOTSTRAP_SERVERS=$BOOTSTRAP_SERVERS \
-   -p relations-sink-ephemeral/IMAGE_TAG=$IMAGE_TAG
+bonfire deploy kessel -C relations-sink-ephemeral
 ```
 
 ## Test in Ephemeral
@@ -203,27 +158,34 @@ zed schema read
 zed schema write /path/to/schema.zed
 ```
 
-2) Verify the Connect cluster and Connector are healthy
+2) Verify the Clowder-provided Connect cluster and Connector are healthy
 
 ```shell
-oc get kc relations-sink -o jsonpath='{.status.conditions[].status}{"\n"}'
-oc get kctr relations-sink-connector -o jsonpath='{.status.conditions[].status}{"\n"}'
+# The ClowdEnv name is used to name Kafka objects -- setting this value makes things easier later
+CLD_ENV_NAME="env-$(bonfire namespace describe -o json | jq -r '.namespace')"
+oc get kc $CLD_ENV_NAME -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
+oc get kctr relations-sink-connector -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
 
-# The output of both commands above should be "True"
+# The output of both commands above should be the object name and "True"
+# example:
+# oc get kc $CLD_ENV_NAME -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
+# env-ephemeral-snkcy4    True
+#
+# oc get kctr relations-sink-connector -o jsonpath='{.metadata.name}{"\t"}{.status.conditions[].status}{"\n"}'
+# relations-sink-connector	True
 ```
 
 3) Access the connect pod
 
 ```shell
-oc rsh relations-sink-connect-0
+# this passes CLD_ENV_NAME to the container to make it easier to set bootstrap server address
+oc rsh "$CLD_ENV_NAME-connect-0" /bin/bash -c "CLD_ENV_NAME=$CLD_ENV_NAME bash"
 ```
 
 2) Produce an event to the topic
 
 ```shell
-# Note youll need to update the bootstrap server address with your bootstrap server address
-# If you deployed using the above method -- `echo $BOOTSTRAP_SERVERS`
-echo '{"schema":{"type":"string","optional":true,"name":"io.debezium.data.Json","version":1},"payload":"{\"relations_to_add\": [{\"subject\": {\"subject\": {\"id\": \"my_workspace\", \"type\": {\"name\": \"workspace\", \"namespace\": \"rbac\"}}}, \"relation\": \"t_workspace\", \"resource\": {\"id\": \"my_integration\", \"type\": {\"name\": \"integration\", \"namespace\": \"notifications\"}}}], \"relations_to_remove\": []}"}' | bin/kafka-console-producer.sh --bootstrap-server <YOUR_BOOTSTRAP_SERVER>:9092 --topic outbox.event.relations-replication-event
+echo '{"schema":{"type":"string","optional":true,"name":"io.debezium.data.Json","version":1},"payload":"{\"relations_to_add\": [{\"subject\": {\"subject\": {\"id\": \"my_workspace\", \"type\": {\"name\": \"workspace\", \"namespace\": \"rbac\"}}}, \"relation\": \"t_workspace\", \"resource\": {\"id\": \"my_integration\", \"type\": {\"name\": \"integration\", \"namespace\": \"notifications\"}}}], \"relations_to_remove\": []}"}' | bin/kafka-console-producer.sh --bootstrap-server $CLD_ENV_NAME-kafka-bootstrap:9092 --topic outbox.event.relations-replication-event
 ```
 
 3) Exit the pod and test with `zed`
