@@ -10,6 +10,7 @@ objects:
       labels:
         strimzi.io/cluster: ${KAFKA_CONNECT_INSTANCE}
     spec:
+      state: ${CONNECTOR_STATE}
       class: org.project_kessel.kafka.relations.sink.RelationsSinkConnector
       tasksMax: ${{MAX_TASKS}}
       config:
@@ -44,3 +45,6 @@ parameters:
   description: "Configures the authentication mode"
   required: true
   value: "oidc-client-credentials"
+- name: CONNECTOR_STATE
+  description: Defines the state the connector should be deployed in ('stopped', 'running', 'paused' only)
+  value: running
